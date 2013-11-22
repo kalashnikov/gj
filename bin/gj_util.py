@@ -29,7 +29,11 @@ class Match(object):
     def __init__(self, tokens, pattern):
         self.filename, self.line_num, self.text = tokens
         self.line_num = int(self.line_num)
-        self.column = self.text.index(pattern)
+#        self.column = self.text.index(pattern)
+        try:
+            self.column = self.text.index(pattern)
+        except Exception, e:
+            self.column = 0
 
     @staticmethod
     def create(line, pattern):
@@ -136,7 +140,9 @@ def filter_until_select(matches, patterns, last_n):
             response = response[1:]
         else:
             exclude = False
-        matches = _filter_filename(matches, response, exclude)
+
+        # Filter using both filename & text    
+        matches = _filter_allinfo(matches, response, exclude)
 
     matches.sort()
 
@@ -224,7 +230,8 @@ def _get_gid_cmd():
     return gid
 
 def _gid(pattern):
-    cmd = [_get_gid_cmd(), pattern]
+    # TODO: Add option for case-insensitive 
+    cmd = [_get_gid_cmd(), '-r', pattern]          # Use -r for regex 
     process = subprocess.Popen(cmd,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -287,6 +294,12 @@ def _filter_filename(all_, pattern, exclude):
         return matched
     return _subtract_list(all_, matched)
 
+def _filter_allinfo(all_, pattern, exclude):
+    matched = [m for m in all_ if re.search(pattern, m.filename) or re.search(pattern, m.text)] # Add Text Search
+    if not exclude:
+        return matched
+    return _subtract_list(all_, matched)
+
 def _filter_pattern(matches, pattern):
     negative_symbol = '~'
 
@@ -300,12 +313,6 @@ def _filter_pattern(matches, pattern):
             new_matches.append(m)
 
     return new_matches
-
-def _filter_filename(all_, pattern, exclude):
-    matched = [m for m in all_ if re.search(pattern, m.filename)]
-    if not exclude:
-        return matched
-    return _subtract_list(all_, matched)
 
 def _subtract_list(kept, removed):
     return [e for e in kept if e not in removed]
